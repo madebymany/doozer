@@ -44,16 +44,11 @@ func init() {
 	rand.Seed(time.Now().UnixNano())
 }
 
-// Dial connects to a single doozer server.
-func Dial(addr string) (*Conn, error) {
-	var c Conn
-	var err error
-	c.addr = addr
-	c.conn, err = net.Dial("tcp", addr)
-	if err != nil {
-		return nil, err
-	}
-
+// New connects to a single doozer server through a given net.Conn
+func New(conn net.Conn) (c *Conn, err error) {
+	c = &Conn{}
+	c.conn = conn
+	c.addr = conn.RemoteAddr().String()
 	c.send = make(chan *txn)
 	c.msg = make(chan []byte)
 	c.stop = make(chan bool, 1)
@@ -61,7 +56,18 @@ func Dial(addr string) (*Conn, error) {
 	errch := make(chan error, 1)
 	go c.mux(errch)
 	go c.readAll(errch)
-	return &c, nil
+	return c, nil
+}
+
+// Dial connects to a single doozer server by address
+func Dial(addr string) (c *Conn, err error) {
+	conn, err := net.Dial("tcp", addr)
+	if err != nil {
+		return nil, err
+	}
+
+	c, err = New(conn)
+	return
 }
 
 // DialUri connects to one of the doozer servers given in `uri`. If `uri`
